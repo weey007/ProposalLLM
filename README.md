@@ -1,3 +1,7 @@
+# ProposalLLM （Proposal-LLM Chinese version )
+
+If you want the English Version, please pick a issue.
+
 #Features of this Open-Source Software:
 
 Automatically generates a point-by-point response format proposal based on the requirements matrix and product documentation. This includes generating all subheadings and content with automatic formatting for headings 1, 2, and 3, organizing body text, images, and bullet points accordingly.
