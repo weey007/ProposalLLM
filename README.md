@@ -36,6 +36,117 @@ key_flag=1 includes the importance level in the proposal subheading (default is 
 last_heading_1=2 sets the beginning chapter number for the technical solution in "Proposal Content.docx" (in the template, it is chapter 2) so that chapter numbers are automatically filled in the requirements matrix.
 Run Generate.py.
 
+## 最新更新（2025-02-20）
+
+### 代码重构与优化
+
+1. 配置管理优化
+   - 新增`.env`配置文件支持，提升安全性
+   - 将API密钥从代码中移除，改为环境变量管理
+   - 创建`.env.example`作为配置模板
+
+2. 代码结构优化
+   - 重构为面向对象的模块化结构
+   - 新增专门的类处理不同功能：
+     - `Config`：统一配置管理
+     - `BaiduAPI`：百度API调用封装
+     - `OpenAI`：OpenAI API调用封装
+     - `DocumentProcessor`：文档基础处理
+     - `ExcelProcessor`：Excel文件处理
+     - `WordProcessor`：Word文档处理
+     - `AIService`：AI服务统一接口
+
+3. 错误处理增强
+   - 添加完整的异常处理机制
+   - 增加详细的错误日志输出
+   - 使用类型提示提高代码可读性
+
+4. 依赖管理
+   - 更新`requirements.txt`
+   - 新增`python-dotenv`包用于环境变量管理
+
+### 使用方法更新
+
+1. 环境配置
+   ```bash
+   # 安装依赖
+   pip install -r requirements.txt
+   
+   # 配置环境变量
+   cp .env.example .env
+   # 编辑.env文件，填入您的API密钥
+   ```
+
+2. 配置文件说明
+   ```ini
+   # .env文件配置项
+   BAIDU_API_KEY=您的百度API密钥
+   BAIDU_SECRET_KEY=您的百度密钥
+   OPENAI_API_KEY=您的OpenAI API密钥
+   ```
+
+3. 运行程序
+   ```bash
+   python Generate.py
+   ```
+
+### 注意事项
+
+- 请确保在运行程序前正确配置`.env`文件
+- 敏感信息（如API密钥）请勿提交到版本控制系统
+- 如遇到问题，请查看错误日志输出
+
+## 项目结构
+
+```
+ProposalLLM/
+├── data/                    # 数据目录
+│   ├── input/              # 输入文件目录
+│   │   ├── 标书内容.docx    # 标书内容文件
+│   │   └── 需求对应表.xlsx  # 需求对应表
+│   ├── output/             # 输出文件目录
+│   └── templates/          # 模板文件目录
+│       └── Template.docx   # 模板文档
+├── examples/               # 示例文件目录
+│   ├── 标书内容-样例.docx   # 标书内容示例
+│   └── 需求对应表-样例.xlsx # 需求对应表示例
+├── src/                    # 源代码目录
+│   ├── Extract_Word.py    # 文档提取脚本
+│   └── Generate.py        # 主生成脚本
+├── .env.example           # 环境变量示例文件
+├── requirements.txt       # 项目依赖
+└── README.md             # 项目说明文档
+```
+
+## 使用说明
+
+1. 环境准备
+   ```bash
+   # 安装依赖
+   pip install -r requirements.txt
+   
+   # 配置环境变量
+   cp .env.example .env
+   # 编辑.env文件，填入您的API密钥
+   ```
+
+2. 文件准备
+   - 将您的标书内容放在 `data/input/标书内容.docx`
+   - 将需求对应表放在 `data/input/需求对应表.xlsx`
+   - 确保模板文件位于 `data/templates/Template.docx`
+
+3. 运行程序
+   ```bash
+   # 提取文档
+   python src/Extract_Word.py
+   
+   # 生成标书
+   python src/Generate.py
+   ```
+
+4. 查看结果
+   - 生成的文件将保存在 `data/output/` 目录下
+
 #Advertisement:
 
 WhaleOps Open Source is a commercial open-source company founded by the original teams behind Apache DolphinScheduler and Apache SeaTunnel, providing more powerful, stable commercial versions for scheduling, data development, data synchronization, and ETL solutions. WhaleStudio supports ETL and data development across 192 databases, fully replacing functionalities in tools like Informatica and Talend. WhaleStudio has successful commercial implementations and replacements in leading enterprises across industries, including CITIC Securities, China Bank, China Life, and Want Want Group. WhaleStudio’s drag-and-drop scheduling and ETL features integrate quickly into partner systems. For more information, contact us at service@whaleops.com.
