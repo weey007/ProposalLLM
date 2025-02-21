@@ -2,15 +2,17 @@ import io
 import json
 import os
 import re
+import time
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 import docx
 import openai
-import openpyxl
 import requests
 from docx.shared import Cm
 from dotenv import load_dotenv
+from openpyxl import Workbook, load_workbook
+from openpyxl.worksheet.worksheet import Worksheet
 
 # 定义项目根目录和其他目录
 ROOT_DIR = Path(__file__).parent
@@ -27,25 +29,27 @@ for dir_path in [DATA_DIR, INPUT_DIR, OUTPUT_DIR, TEMPLATES_DIR, EXAMPLES_DIR]:
 # 加载环境变量
 load_dotenv()
 
-
 class Config:
     """配置类，用于管理所有配置项"""
+
+    # 加载环境变量
+    load_dotenv()
 
     # 文件路径配置
     EXCEL_FILE = INPUT_DIR / "需求对应表.xlsx"
     WORD_FILE = INPUT_DIR / "标书内容.docx"
     TEMPLATE_FILE = TEMPLATES_DIR / "Template.docx"
+    
+    # 输出文件路径配置
+    OUTPUT_EXCEL_FILE = OUTPUT_DIR / "需求对应表_输出.xlsx"
+    OUTPUT_WORD_FILE = OUTPUT_DIR / "标书内容_输出.docx"
 
     # API配置
-    BAIDU_API_KEY = os.getenv('BAIDU_API_KEY', '')
-    BAIDU_SECRET_KEY = os.getenv('BAIDU_SECRET_KEY', '')
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
-    OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', 'https://api.openai.com/v1')
-
-    # API选择
+    BAIDU_API_KEY = os.getenv('BAIDU_API_KEY', 'your_api_key_here')
+    BAIDU_SECRET_KEY = os.getenv('BAIDU_SECRET_KEY', 'your_secret_key_here')
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'your_api_key_here')
+    OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', 'https://api.openai.com/v1/')  # 添加末尾的斜杠
     USE_BAIDU = os.getenv('USE_BAIDU', 'true').lower() == 'true'
-
-    # OpenAI配置
     OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4')
     OPENAI_TEMPERATURE = float(os.getenv('OPENAI_TEMPERATURE', '0.7'))
     OPENAI_MAX_TOKENS = int(os.getenv('OPENAI_MAX_TOKENS', '1500'))
@@ -77,6 +81,19 @@ class Config:
     LAST_HEADING_1 = 2
     LAST_HEADING_2 = 0
     LAST_HEADING_3 = 0
+
+    @classmethod
+    def reload(cls):
+        """重新加载配置"""
+        load_dotenv()
+        cls.BAIDU_API_KEY = os.getenv('BAIDU_API_KEY', 'your_api_key_here')
+        cls.BAIDU_SECRET_KEY = os.getenv('BAIDU_SECRET_KEY', 'your_secret_key_here')
+        cls.OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'your_api_key_here')
+        cls.OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', 'https://api.openai.com/v1/')
+        cls.USE_BAIDU = os.getenv('USE_BAIDU', 'true').lower() == 'true'
+        cls.OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4')
+        cls.OPENAI_TEMPERATURE = float(os.getenv('OPENAI_TEMPERATURE', '0.7'))
+        cls.OPENAI_MAX_TOKENS = int(os.getenv('OPENAI_MAX_TOKENS', '1500'))
 
 
 class BaiduAPI:
@@ -137,7 +154,16 @@ class OpenAIAPI:
         """调用OpenAI API"""
         try:
             cls.initialize()
-            response = openai.ChatCompletion.create(
+            # 检查API基础URL是否以斜杠结尾
+            base_url = Config.OPENAI_API_BASE
+            if not base_url.endswith('/'):
+                base_url += '/'
+                
+            client = openai.OpenAI(
+                api_key=Config.OPENAI_API_KEY,
+                base_url=base_url
+            )
+            response = client.chat.completions.create(
                 model=Config.OPENAI_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=Config.OPENAI_TEMPERATURE,
@@ -222,16 +248,16 @@ class ExcelProcessor:
     """Excel处理类"""
 
     @staticmethod
-    def load_excel(file_path: str) -> openpyxl.Workbook:
+    def load_excel(file_path: str) -> Workbook:
         """加载Excel文件"""
         try:
-            return openpyxl.load_workbook(file_path)
+            return load_workbook(file_path)
         except Exception as e:
             print(f"加载Excel文件失败: {str(e)}")
             raise
 
     @staticmethod
-    def get_sheet(workbook: openpyxl.Workbook) -> openpyxl.Worksheet:
+    def get_sheet(workbook: Workbook) -> Worksheet:
         """获取Excel工作表"""
         try:
             return workbook.active
@@ -323,13 +349,16 @@ class WordProcessor:
 
 def main():
     """主函数"""
+    start_time = time.time()
     try:
+        print("开始执行主程序...")
         # 检查环境变量是否已配置
         if not Config.BAIDU_API_KEY or not Config.BAIDU_SECRET_KEY:
             raise ValueError("请在.env文件中配置BAIDU_API_KEY和BAIDU_SECRET_KEY")
 
         # 加载配置
         config = Config()
+        print("配置加载完成")
 
         # 加载Excel文件
         excel_file = Config.EXCEL_FILE
@@ -339,22 +368,31 @@ def main():
         excel_processor = ExcelProcessor()
         workbook = excel_processor.load_excel(excel_file)
         sheet = excel_processor.get_sheet(workbook)
+        print(f"Excel文件加载完成: {excel_file}")
 
         # 加载Word文件
         word_file = Config.WORD_FILE
         word_processor = WordProcessor()
         document = word_processor.load_word(word_file)
+        print(f"Word文件加载完成: {word_file}")
 
         # 处理Excel数据
+        row_count = 0
+        print("开始处理Excel数据...")
         for row in sheet.iter_rows(min_row=2):  # 从第二行开始，跳过表头
+            row_count += 1
+            process_start_time = time.time()
+            
             b_column_content = row[1].value
             c_column_content = row[2].value
             g_column_value = row[6].value
 
             # 调用百度API，缩减C列内容
+            print(f"处理第{row_count}行 - 正在生成标题...")
             shortened_title = AIService.shorten_text(c_column_content)
 
             # 调用OpenAI API，对C列做应答
+            print(f"处理第{row_count}行 - 正在生成解决方案...")
             optimized_description = AIService.generate_solution(c_column_content)
 
             # 将优化后的说明写入E列
@@ -392,6 +430,7 @@ def main():
                 x_word_file = f"{g_column_value}.docx"
                 # 检查对应的Word文件是否存在
                 if os.path.exists(x_word_file):
+                    print(f"处理第{row_count}行 - 正在处理关联Word文件: {x_word_file}")
                     x_document = word_processor.load_word(x_word_file)
                     # 复制文件和图片
                     for block in DocumentProcessor.iter_block_items(x_document):
@@ -413,16 +452,25 @@ def main():
                                 for j, cell in enumerate(row.cells):
                                     document.tables[-1].cell(i, j).text = cell.text
             except ValueError:
-                print(f"Error converting G column to integer: {g_column_value}")
+                print(f"处理第{row_count}行时出错 - G列值转换失败: {g_column_value}")
                 continue
+                
+            process_end_time = time.time()
+            print(f"第{row_count}行处理完成，耗时: {process_end_time - process_start_time:.2f}秒")
 
-        # 保存更新后的Excel文件
-        workbook.save(excel_file)
+        # 保存更新后的Excel文件到output目录
+        workbook.save(Config.OUTPUT_EXCEL_FILE)
+        print(f"Excel文件保存完成: {Config.OUTPUT_EXCEL_FILE}")
 
-        # 保存最终Word文档
-        word_processor.save_word(document, word_file)
+        # 保存最终Word文档到output目录
+        word_processor.save_word(document, Config.OUTPUT_WORD_FILE)
+        print(f"Word文件保存完成: {Config.OUTPUT_WORD_FILE}")
 
-        print("Process completed!")
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(f"\n程序执行完成!")
+        print(f"总共处理了{row_count}行数据")
+        print(f"总耗时: {total_time:.2f}秒")
 
     except Exception as e:
         print(f"程序执行出错: {str(e)}")

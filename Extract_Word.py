@@ -18,7 +18,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
-from docx.table import Table
+from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 from docx.shared import Cm
 import io
@@ -68,7 +68,7 @@ class DocumentProcessor:
             self.version[2] += 1
 
     @staticmethod
-    def set_cell_font(cell: Table.Cell, font_name: str = '宋体') -> None:
+    def set_cell_font(cell: _Cell, font_name: str = '宋体') -> None:
         """设置单元格字体
         
         Args:
